@@ -1,0 +1,55 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for better analysis relevancy
+
+      - name: Run SonarQube scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          # Directly using the provided token and URL
+          SONAR_TOKEN: sqp_b909a81178736b683f43c3d04f21b8616dfce09d
+          SONAR_HOST_URL: http://47.128.78.109:9000
+
+      # Uncomment to fail the job if the Quality Gate fails
+      # - name: Check SonarQube Quality Gate
+      #   uses: sonarsource/sonarqube-quality-gate-action@master
+      #   timeout-minutes: 5
+      #   env:
+      #     SONAR_TOKEN: sqp_b909a81178736b683f43c3d04f21b8616dfce09d
+
+      - name: Install Trivy
+        run: |
+          # Install prerequisites
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+          
+          # Add Trivy repository
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          
+          # Install Trivy
+          sudo apt-get update
+          sudo apt-get install trivy -y
+      - name: Run Trivy scan
+        run: |
+          # Scan the file system for vulnerabilities
+          trivy fs .
+      - name: Docker build and push
+        run: |
+            # Run commands to build and push Docker images
+            docker build --build-arg TMDB_V3_API_KEY=e1464541c6df1f01cdc5b44e1bd3b74c -t netflix .
+            docker tag netflix muvinmuthuramalingam2017/netflix:latest
+            docker login -u muvinmuthuramalingam2017 -p dckr_pat_22YL5xAoSw0LWlijatpjgO8oM4g
+            docker push muvinmuthuramalingam2017/netflix:latest
