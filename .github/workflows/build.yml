@@ -42,25 +42,43 @@ jobs:
           # Install Trivy
           sudo apt-get update
           sudo apt-get install trivy -y
+
       - name: Run Trivy scan
         run: |
           # Scan the file system for vulnerabilities
           trivy fs .
+
       - name: Docker build and push
         run: |
-          # Run commands to build and push Docker images
-          docker build --build-arg TMDB_V3_API_KEY=e1464541c6df1f01cdc5b44e1bd3b74c -t netflix .
-          docker tag netflix muvinmuthuramalingam2017/netflix:latest
-          docker login -u muvinmuthuramalingam2017 -p dckr_pat_22YL5xAoSw0LWlijatpjgO8oM4g
-          docker push muvinmuthuramalingam2017/netflix:latest
+            # Run commands to build and push Docker images
+            docker build --build-arg TMDB_V3_API_KEY=e1464541c6df1f01cdc5b44e1bd3b74c -t netflix .
+            docker tag netflix muvinmuthuramalingam2017/netflix:latest
+            docker login -u muvinmuthuramalingam2017 -p dckr_pat_22YL5xAoSw0LWlijatpjgO8oM4g
+            docker push muvinmuthuramalingam2017/netflix:latest
 
   deploy:    
     needs: build  
     runs-on: ubuntu-latest  
     steps:
+      - name: Install Trivy
+        run: |
+          # Install prerequisites
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+          
+          # Add Trivy repository
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          
+          # Install Trivy
+          sudo apt-get update
+          sudo apt-get install trivy -y
+
       - name: Pull the docker image
         run: docker pull muvinmuthuramalingam2017/netflix:latest
+
       - name: Trivy image scan
         run: trivy image muvinmuthuramalingam2017/netflix:latest
+
       - name: Run the container netflix
         run: docker run -d --name netflix -p 8081:80 muvinmuthuramalingam2017/netflix:latest
