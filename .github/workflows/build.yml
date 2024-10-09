@@ -53,3 +53,13 @@ jobs:
             docker tag netflix muvinmuthuramalingam2017/netflix:latest
             docker login -u muvinmuthuramalingam2017 -p dckr_pat_22YL5xAoSw0LWlijatpjgO8oM4g
             docker push muvinmuthuramalingam2017/netflix:latest
+deploy:    
+    needs: build  
+    runs-on: [aws-netflix]  
+    steps:
+      - name: Pull the docker image
+        run: docker pull muvinmuthuramalingam2017/netflix:latest
+      - name: Trivy image scan
+        run: trivy image muvinmuthuramalingam2017/netflix:latest
+      - name: Run the container netflix
+        run: docker run -d --name netflix -p 8081:80 muvinmuthuramalingam2017/netflix:latest
