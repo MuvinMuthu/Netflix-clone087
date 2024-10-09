@@ -48,14 +48,15 @@ jobs:
           trivy fs .
       - name: Docker build and push
         run: |
-            # Run commands to build and push Docker images
-            docker build --build-arg TMDB_V3_API_KEY=e1464541c6df1f01cdc5b44e1bd3b74c -t netflix .
-            docker tag netflix muvinmuthuramalingam2017/netflix:latest
-            docker login -u muvinmuthuramalingam2017 -p dckr_pat_22YL5xAoSw0LWlijatpjgO8oM4g
-            docker push muvinmuthuramalingam2017/netflix:latest
-deploy:    
+          # Run commands to build and push Docker images
+          docker build --build-arg TMDB_V3_API_KEY=e1464541c6df1f01cdc5b44e1bd3b74c -t netflix .
+          docker tag netflix muvinmuthuramalingam2017/netflix:latest
+          docker login -u muvinmuthuramalingam2017 -p dckr_pat_22YL5xAoSw0LWlijatpjgO8oM4g
+          docker push muvinmuthuramalingam2017/netflix:latest
+
+  deploy:    
     needs: build  
-    runs-on: [aws-netflix]  
+    runs-on: ubuntu-latest  
     steps:
       - name: Pull the docker image
         run: docker pull muvinmuthuramalingam2017/netflix:latest
