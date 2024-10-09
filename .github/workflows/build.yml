@@ -7,8 +7,8 @@ stages:
 
 variables:
   DOCKER_TAG: "muvinmuthuramalingam2017/netflix:latest"
-  TMDB_V3_API_KEY: e1464541c6df1f01cdc5b44e1bd3b74c  # Set in GitLab CI/CD variables
-  DOCKER_PASSWORD: Mylingam@087  # Set in GitLab CI/CD variables
+  TMDB_V3_API_KEY: e1464541c6df1f01cdc5b44e1bd3b74c  # Consider moving to GitLab CI/CD variables for security
+  DOCKER_PASSWORD: Mylingam@087  # Consider moving to GitLab CI/CD variables for security
 
 before_script:
   # Install Docker
@@ -18,19 +18,19 @@ before_script:
 build:
   stage: build
   tags:
-    - ec2  # Adjust as needed based on your runner
+    - ec2  # Ensure this matches your runner's tag
   script:
     # Checkout the repository (this is automatic in GitLab CI/CD)
     # Build the Docker image with the TMDB API key and push to Docker Hub
-    - docker build --build-arg TMDB_V3_API_KEY=e1464541c6df1f01cdc5b44e1bd3b74c -t netflix .
+    - docker build --build-arg TMDB_V3_API_KEY=$TMDB_V3_API_KEY -t netflix .
     - docker tag netflix $DOCKER_TAG
-    - docker login -u muvinmuthuramalingam2017 -p dckr_pat_22YL5xAoSw0LWlijatpjgO8oM4g
+    - echo $DOCKER_PASSWORD | docker login -u muvinmuthuramalingam2017 --password-stdin  # Use secure login method
     - docker push $DOCKER_TAG
 
 trivy_scan:
   stage: scan
   tags:
-    - ec2  # Adjust as needed based on your runner
+    - ec2  # Ensure this matches your runner's tag
   script:
     # Install Trivy
     - apt-get update && apt-get install -y wget apt-transport-https gnupg lsb-release
@@ -50,7 +50,7 @@ trivy_scan:
 deploy:
   stage: deploy
   tags:
-    - ec2  # Adjust as needed based on your runner
+    - ec2  # Ensure this matches your runner's tag
   script:
     # Pull the Docker image from Docker Hub
     - docker pull $DOCKER_TAG
