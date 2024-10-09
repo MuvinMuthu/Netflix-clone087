@@ -7,8 +7,8 @@ stages:
 
 variables:
   DOCKER_TAG: "muvinmuthuramalingam2017/netflix:latest"
-  TMDB_V3_API_KEY: e1464541c6df1f01cdc5b44e1bd3b74c  # Consider moving to GitLab CI/CD variables for security
-  DOCKER_PASSWORD: Mylingam@087  # Consider moving to GitLab CI/CD variables for security
+  TMDB_V3_API_KEY: "e1464541c6df1f01cdc5b44e1bd3b74c"  # Consider moving to GitLab CI/CD variables for security
+  DOCKER_PASSWORD: "Mylingam@087"  # Consider moving to GitLab CI/CD variables for security
 
 before_script:
   # Install Docker
@@ -20,7 +20,6 @@ build:
   tags:
     - ec2  # Ensure this matches your runner's tag
   script:
-    # Checkout the repository (this is automatic in GitLab CI/CD)
     # Build the Docker image with the TMDB API key and push to Docker Hub
     - docker build --build-arg TMDB_V3_API_KEY=$TMDB_V3_API_KEY -t netflix .
     - docker tag netflix $DOCKER_TAG
