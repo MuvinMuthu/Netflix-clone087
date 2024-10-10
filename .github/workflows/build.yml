@@ -1,61 +1,83 @@
-image: ubuntu:latest
+pipeline {
+    agent any
 
-stages:
-  - build
-  - scan
-  - deploy
+    environment {
+        SONAR_TOKEN = 'sqp_b909a81178736b683f43c3d04f21b8616dfce09d'
+        SONAR_HOST_URL = 'http://47.128.78.109:9000'
+        TMDB_V3_API_KEY = 'e1464541c6df1f01cdc5b44e1bd3b74c'
+        DOCKER_USER = 'muvinmuthuramalingam2017'
+        DOCKER_PASS = 'dckr_pat_22YL5xAoSw0LWlijatpjgO8oM4g'
+    }
 
-variables:
-  DOCKER_TAG: "muvinmuthuramalingam2017/netflix:latest"
-  TMDB_V3_API_KEY: "e1464541c6df1f01cdc5b44e1bd3b74c"  # Consider moving to GitLab CI/CD variables for security
-  DOCKER_PASSWORD: "Mylingam@087"  # Consider moving to GitLab CI/CD variables for security
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/MuvinMuthu/Netflix-clone087.git'
+            }
+        }
 
-before_script:
-  # Install Docker
-  - apt-get update && apt-get install -y docker.io
-  - service docker start
+        stage('SonarQube Scan') {
+            steps {
+                withSonarQubeEnv('SonarQube') { 
+                    sh 'sonar-scanner -Dsonar.projectKey=your-project-key -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_TOKEN'
+                }
+            }
+        }
 
-build:
-  stage: build
-  tags:
-    - ec2  # Ensure this matches your runner's tag
-  script:
-    # Build the Docker image with the TMDB API key and push to Docker Hub
-    - docker build --build-arg TMDB_V3_API_KEY=$TMDB_V3_API_KEY -t netflix .
-    - docker tag netflix $DOCKER_TAG
-    - echo $DOCKER_PASSWORD | docker login -u muvinmuthuramalingam2017 --password-stdin  # Use secure login method
-    - docker push $DOCKER_TAG
+        stage('Install Trivy') {
+            steps {
+                sh '''
+                sudo apt-get update
+                sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+                wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+                echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+                sudo apt-get update
+                sudo apt-get install trivy -y
+                '''
+            }
+        }
 
-trivy_scan:
-  stage: scan
-  tags:
-    - ec2  # Ensure this matches your runner's tag
-  script:
-    # Install Trivy
-    - apt-get update && apt-get install -y wget apt-transport-https gnupg lsb-release
-    - wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | tee /usr/share/keyrings/trivy.gpg > /dev/null
-    - echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list
-    - apt-get update && apt-get install -y trivy
+        stage('Cache Trivy Database') {
+            steps {
+                sh '''
+                trivy fs --download-db-only || true
+                '''
+            }
+        }
 
-    # Run Trivy file system scan
-    - trivy fs --download-db-only || true
-    - trivy fs .
+        stage('Run Trivy File System Scan') {
+            steps {
+                sh 'trivy fs .'
+            }
+        }
 
-    # Run Trivy image scan with retries to handle rate limits
-    - for i in {1..5}; do
-        trivy image $DOCKER_TAG && break || sleep 30;
-      done
+        stage('Docker Build and Push') {
+            steps {
+                sh '''
+                docker build --build-arg TMDB_V3_API_KEY=$TMDB_V3_API_KEY -t netflix .
+                docker tag netflix $DOCKER_USER/netflix:latest
+                echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                docker push $DOCKER_USER/netflix:latest
+                '''
+            }
+        }
 
-deploy:
-  stage: deploy
-  tags:
-    - ec2  # Ensure this matches your runner's tag
-  script:
-    # Pull the Docker image from Docker Hub
-    - docker pull $DOCKER_TAG
-    # Stop and remove any existing container named 'netflix'
-    - if [ $(docker ps -q --filter "name=netflix") ]; then docker stop netflix && docker rm netflix; fi
-    # Run the new Docker container on port 8081
-    - docker run -d --name netflix -p 8081:80 $DOCKER_TAG
-    # Cleanup unused Docker images
-    - docker image prune -f
+        stage('Deploy') {
+            steps {
+                sh '''
+                sudo apt-get update
+                sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+                wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+                echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+                sudo apt-get update
+                sudo apt-get install trivy -y
+                docker pull $DOCKER_USER/netflix:latest
+                for i in {1..5}; do
+                    trivy image $DOCKER_USER/netflix:latest && break || sleep 30;
+                done
+                docker run -d --name netflix -p 8081:80 $DOCKER_USER/netflix:latest
+                '''
+            }
+        }
+    }
+}
